@@ -3,6 +3,30 @@
 This is the **vibe** copy of the backend, separate from `../backend-part` (the hand-written learning project). `backend-part` and `../frontend-part` must stay untouched: never read-modify them from here. This project pairs with `../frontend-vibe`.
 Purpose of this project and session: an experiment to see how far stating "documentation" (this file) alone brings the implementation. Keep this file accurate: it is the spec the work is driven from.
 
+# App definition (the spec; build from this, do not widen it)
+
+**Weather for saved places.** A logged-in user saves places (Home, Work, Mum) and sees the forecast for each. Login is required for everything except `POST /login` and `POST /signup`.
+
+In scope:
+- Accounts and sessions (done).
+- **Preferences** on the user: `language`, `units` (columns on `users`). Preferences are not places.
+- **Places**: a saved place is a name plus coordinates, owned by one user. Table `places` (not "addresses", so it is never confused with a postal address): `id`, `user_id` FK (`ON DELETE CASCADE`), `label`, `name`, `country`, `region`, `latitude` and `longitude` (`double precision`, full precision), `elevation` (optional), `timezone`, `is_default`, `created_at`. Max 20 places per user.
+- **Place search** through the Open-Meteo Geocoding API: the user types a name, picks a result, the chosen result becomes a place. Users never type coordinates.
+- **Forecast** through the Open-Meteo Forecast API: current conditions, next 24 hours, next 7 days. Always returned with a "retrieved at" time. The frontend shows the attribution "Weather data by Open-Meteo.com" (CC BY 4.0).
+
+Out of scope (do not add without changing this section): shipping or postal addresses, map UI, PostGIS, sharing places between users, roles, push alerts, anonymous access.
+
+Endpoints to build (all behind the guard):
+- `GET /places/search?q=` returns candidate places from the geocoder (not saved).
+- `GET /places`, `POST /places`, `PATCH /places/:id`, `DELETE /places/:id`: the logged-in user's own places.
+- `GET /places/:id/forecast`: the backend loads the saved place and calls Open-Meteo with its stored coordinates. The client never sends coordinates for a forecast.
+- `PATCH /users/me/preferences` updates `language` and `units`.
+
+Rules:
+- **Ownership:** every query on `places` filters by the session's user id. Another user's place id returns 404, never the data (otherwise it is an IDOR). This is the use case that finally puts the user on `req`: the guard sets the user id after the session check.
+- **Upstream calls** (geocoder, forecast) live in their own service files, never in a controller. Map upstream failures to our own statuses (e.g. 502 or 503), and cache forecasts in memory per place for a few minutes (confirm the exact duration against Open-Meteo's terms of use before relying on it).
+- Do not log full place names or coordinates together with a user id.
+
 # Project context
 
 Learning project: Next.js fullstack app. Developed ad hoc, no fixed roadmap.
@@ -27,8 +51,13 @@ Current state: signup and login work end to end, called by the frontend over `fe
 1. (done) Auth guard: Express middleware, default deny, public list `/login`, `/signup`. Putting the user on `req` is deferred until there is a use case.
 2. (done) One error middleware (500) and 400 for malformed JSON.
 2b. (done) Migrated from raw `http` to Express 5 + TypeScript, single server on port 8080.
-3. Cleanup of expired sessions.
-4. Later: roles/permissions (`role` column, `requireRole`), forgot password (reset token with expiry), migrations instead of `CREATE TABLE IF NOT EXISTS`.
+3. Guard puts the user id on `req` (typed), so handlers know who is calling.
+4. `places` module: table in `db.ts`, CRUD, ownership checks, 20-place cap.
+5. Place search (`GET /places/search`) with an Open-Meteo geocoding service.
+6. Forecast (`GET /places/:id/forecast`) with an Open-Meteo forecast service plus a small in-memory cache.
+7. Preferences (`PATCH /users/me/preferences`).
+8. Cleanup of expired sessions.
+9. Later: roles/permissions (`role` column, `requireRole`), forgot password (reset token with expiry), migrations instead of `CREATE TABLE IF NOT EXISTS`.
 
 ## Still unclear to me (re-explain simply when I ask, in Serbian if I write Serbian)
 

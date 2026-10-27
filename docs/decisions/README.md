@@ -20,3 +20,5 @@ Rules for adding one:
 | [0004](0004-express-and-typescript.md) | Express 5 and TypeScript |
 | [0005](0005-raw-sql-for-now.md) | Raw SQL with `pg` for now, ORM later |
 | [0006](0006-default-deny-guard.md) | One guard in front of everything, default deny |
+| [0007](0007-saved-places-not-addresses.md) | The app stores saved places, not postal addresses |
+| [0008](0008-open-meteo-for-search-and-forecast.md) | Open-Meteo for both place search and forecast |
