@@ -19,7 +19,11 @@ async function signup(req: Request, res: Response) {
       return res.status(400).json({ errors: result.errors });
     if (result.reason === "duplicate")
       return res.status(409).json({ errors: result.errors });
-    res.status(201).json({ message: "Account created", user: result.user });
+    res.status(201).json({
+      message: "Account created",
+      user: result.user,
+      session: result.session,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Something went wrong" });

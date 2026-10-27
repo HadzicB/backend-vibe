@@ -16,6 +16,14 @@ function validateSignup(email: string, password: string) {
   return errors;
 }
 
+// 32 random bytes = 64 hex chars. Unguessable, so it works as the "key".
+async function startSession(userId: number) {
+  const id = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+  await authRepository.createSession(id, userId, expiresAt);
+  return { id, expiresAt };
+}
+
 // Service = business rules, no req/res and no SQL. It never picks HTTP
 // statuses: it returns a result and the controller maps it to a status.
 async function signup(rawEmail: unknown, rawPassword: unknown) {
@@ -34,7 +42,9 @@ async function signup(rawEmail: unknown, rawPassword: unknown) {
       errors: { email: ["This email is already registered"] },
     };
   }
-  return { user };
+  // Signup logs the user in, so the next step (their address) is authenticated
+  const session = await startSession(user.id);
+  return { user, session };
 }
 
 // Returns { user, session }, or null for wrong credentials.
@@ -46,16 +56,12 @@ async function login(rawEmail: unknown, rawPassword: unknown) {
     user && (await verifyPassword(String(rawPassword ?? ""), user.password_hash));
   if (!valid) return null;
 
-  // 32 random bytes = 64 hex chars. Unguessable, so it works as the "key".
-  const sessionId = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
-
-  await authRepository.createSession(sessionId, user.id, expiresAt);
+  const session = await startSession(user.id);
   await usersService.incrementLoginCount(user.id);
 
   return {
     user: { id: user.id, username: user.username },
-    session: { id: sessionId, expiresAt },
+    session,
   };
 }
 
@@ -70,9 +76,18 @@ async function isSessionActive(sessionId: string | undefined) {
   return (await authRepository.findActiveSession(sessionId)) !== null;
 }
 
+// The id of the user who owns an active session, or null. The guard puts it on
+// the request so handlers know who is calling.
+async function getUserIdBySession(sessionId: string | undefined) {
+  if (!sessionId) return null;
+  const session = await authRepository.findActiveSession(sessionId);
+  return session ? (session.user_id as number) : null;
+}
+
 export const authService = {
   signup,
   login,
   logout,
   isSessionActive,
+  getUserIdBySession,
 };

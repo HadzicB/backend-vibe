@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { addressesRouter } from "../modules/addresses/addresses.routes.js";
 import { authRouter } from "../modules/auth/auth.routes.js";
 import { usersRouter } from "../modules/users/users.routes.js";
 
@@ -7,3 +8,4 @@ export const routes = Router();
 
 routes.use("/", authRouter); // /login, /signup, /logout
 routes.use("/users", usersRouter); // /users/me
+routes.use("/addresses", addressesRouter); // /addresses, /addresses/search

@@ -17,7 +17,7 @@ async function deleteSession(id: string) {
 
 async function findActiveSession(id: string) {
   const { rows } = await pool.query(
-    "SELECT 1 FROM sessions WHERE id = $1 AND expires_at > now()",
+    "SELECT user_id FROM sessions WHERE id = $1 AND expires_at > now()",
     [id],
   );
   return rows[0] ?? null;

@@ -13,10 +13,12 @@ export async function userAuthorized(
   if (PUBLIC_ROUTES.includes(`${req.method} ${req.path}`)) return next();
   const sessionId = req.headers.authorization?.replace("Bearer ", "");
 
-  const isAuthorized = await authService.isSessionActive(sessionId);
+  const userId = await authService.getUserIdBySession(sessionId);
 
-  if (!isAuthorized) {
+  if (userId === null) {
     return res.status(401).json({ message: "Not authenticated" });
   }
+  // Handlers read this to know who is calling: res.locals.userId
+  res.locals.userId = userId;
   next();
 }
